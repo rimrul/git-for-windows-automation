@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+
+// The `PKGBUILD` file of `mingw-w64-git-sizer` is a bit complicated, as it has
+// separate `case` arms for the different architectures.
+
+// Therefore we need to be a bit more careful when updating than just running
+// `updpkgsums`.
+
+(async () => {
+    const version = process.argv[2]
+
+    const githubApiRequest = require('../github-api-request')
+    const { body: releaseNotes } = await githubApiRequest(
+        console,
+        null,
+        'GET',
+        `/repos/github/git-sizer/releases/tags/v${version}`
+    )
+
+    const sha256sums = {}
+    let architecture
+    let match
+    for (const line of releaseNotes.split(/\r?\n/)) {
+        if (line.match(/^[0-9a-f]{64}$/)) sha256sums[architecture] = line
+        else if ((match = line.match(/git-sizer-\S+-windows-(\S+)\.zip/))) architecture = match[1]
+        else architecture = undefined
+    }
+
+    const msys2lfsArchitecture = {
+        'i686': '386',
+        'x86_64': 'amd64',
+    }
+
+    const fs = require('fs')
+    const lines = fs.readFileSync('PKGBUILD').toString('utf-8').split(/\r?\n/)
+    lines.forEach((line, i) => {
+        if ((match = line.match(/^(\S+)\)$/))) {
+            architecture = msys2lfsArchitecture[match[1]]
+        } else if ((match = line.match(/^(\s*sha256sum=)[0-9a-f]{64}$/))) {
+            lines[i] = `${match[1]}${sha256sums[architecture]}`
+        }
+    })
+    fs.writeFileSync('PKGBUILD', lines.join('\n'))
+})().catch(console.log)
