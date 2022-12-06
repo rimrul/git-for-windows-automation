@@ -8,14 +8,17 @@
 
 (async () => {
     const version = process.argv[2]
+    const fs = require('fs')
 
     const githubApiRequest = require('../github-api-request')
-    const { body: releaseNotes } = await githubApiRequest(
+    const { body: assetJson } = await githubApiRequest(
         console,
         null,
         'GET',
-        `/repos/github/git-sizer/releases/tags/v${version}`
+        `/repos/github/git-sizer/releases/tags/v${version}/assets`
     )
+
+    const assets = JSON.parse(assetJson)
 
     const sha256sums = {}
     let architecture
@@ -31,7 +34,6 @@
         'x86_64': 'amd64',
     }
 
-    const fs = require('fs')
     const lines = fs.readFileSync('PKGBUILD').toString('utf-8').split(/\r?\n/)
     lines.forEach((line, i) => {
         if ((match = line.match(/^(\S+)\)$/))) {
